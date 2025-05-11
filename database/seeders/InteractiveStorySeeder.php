@@ -142,29 +142,32 @@ class InteractiveStorySeeder extends Seeder
             ],
         ];
 
-        // 3) Boucler pour créer chapitres et choix
-        foreach ($data as $order => [$title, $content, $choiceA, $choiceB]) {
-            $chapter = Chapter::create([
-                'story_id' => $story->id,
-                'order'    => $order,
-                'title'    => $title,
-                'content'  => $content,
-            ]);
+        // 3) Passe 1 : création des chapitres
+       $createdChapters = [];
+       foreach ($data as $order => [$title, $content, , ]) {
+              $createdChapters[$order] = Chapter::create([
+              'story_id' => $story->id,
+              'order'    => $order,
+              'title'    => $title,
+              'content'  => $content,
+              ]);
+       }
 
-            if ($choiceA) {
-                Choice::create([
-                    'chapter_id'      => $chapter->id,
-                    'text'            => $choiceA[0],
-                    'target_chapter_id' => $choiceA[1],
-                ]);
-            }
-            if ($choiceB) {
-                Choice::create([
-                    'chapter_id'      => $chapter->id,
-                    'text'            => $choiceB[0],
-                    'target_chapter_id' => $choiceB[1],
-                ]);
-            }
-        }
+       // 4) Passe 2 : création des choix
+       foreach ($data as $order => [$title, $content, $choiceA, $choiceB]) {
+              $chapter = $createdChapters[$order];
+
+              foreach ([$choiceA, $choiceB] as $choice) {
+              if (! $choice) {
+                     continue;
+              }
+              Choice::create([
+                     'chapter_id'        => $chapter->id,
+                     'text'              => $choice[0],
+                     'target_chapter_id' => $createdChapters[$choice[1]]->id,
+                     'impact'            => $choice[2] ?? 0,
+              ]);
+              }
+       }
     }
 }

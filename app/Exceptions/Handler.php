@@ -1,15 +1,18 @@
 <?php
+
 namespace App\Exceptions;
 
 use Throwable;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class Handler extends ExceptionHandler
 {
     /**
-     * A list of the exception types that are not reported.
+     * Les exceptions à ne pas reporter.
      *
      * @var array<int, class-string<Throwable>>
      */
@@ -18,7 +21,7 @@ class Handler extends ExceptionHandler
     ];
 
     /**
-     * A list of the inputs that are never flashed for validation exceptions.
+     * Les champs à ne pas remonter lors d'une ValidationException.
      *
      * @var array<int, string>
      */
@@ -29,27 +32,38 @@ class Handler extends ExceptionHandler
     ];
 
     /**
-     * Register the exception handling callbacks for the application.
+     * Enregistrement des callbacks d'exception.
      */
     public function register(): void
     {
-        //
+        // Laissons cette méthode vide
     }
 
     /**
-     * Render an exception into an HTTP response.
+     * Conversion d'une exception en réponse HTTP.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param \Throwable $e
+     * @return \Symfony\Component\HttpFoundation\Response
+     *
+     * @throws \Throwable
      */
     public function render($request, Throwable $e)
     {
-        if ($request->is('api/*')) {
-            // Resource not found
-            if ($e instanceof ModelNotFoundException) {
-                return response()->json([
-                    'message' => 'Resource not found'
-                ], 404);
+        // Vérifier si la requête concerne l'API
+        if ($request->expectsJson() || $request->is('api/*')) {
+            // Gestion des ModelNotFoundException et NotFoundHttpException
+            if ($e instanceof ModelNotFoundException || 
+                $e instanceof NotFoundHttpException ||
+                ($e instanceof HttpExceptionInterface && $e->getStatusCode() === 404)) {
+                
+                return response()->json(
+                    ['message' => 'Resource not found'], 
+                    404
+                );
             }
 
-            // Validation errors
+            // Gestion des erreurs de validation
             if ($e instanceof ValidationException) {
                 return response()->json([
                     'message' => 'Validation failed',
@@ -57,10 +71,18 @@ class Handler extends ExceptionHandler
                 ], 422);
             }
 
-            // Other exceptions: default to exception message and status code
+            // Gestion des autres exceptions HTTP
+            if ($e instanceof HttpExceptionInterface) {
+                return response()->json([
+                    'message' => $e->getMessage() ?: 'HTTP error',
+                ], $e->getStatusCode());
+            }
+
+            // Autres exceptions inattendues → 500
             return response()->json([
-                'message' => $e->getMessage(),
-            ], method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500);
+                'message' => 'Server Error',
+                'exception' => config('app.debug') ? get_class($e) : null,
+            ], 500);
         }
 
         return parent::render($request, $e);
