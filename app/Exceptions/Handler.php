@@ -9,19 +9,22 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+/**
+ * Classe Handler responsable de la gestion centralisée des exceptions de l'application.
+ */
 class Handler extends ExceptionHandler
 {
     /**
-     * Les exceptions à ne pas reporter.
+     * Liste des exceptions à ne pas enregistrer dans les logs.
      *
      * @var array<int, class-string<Throwable>>
      */
     protected $dontReport = [
-        //
+        // Ajouter ici les exceptions qu'on ne souhaite pas logguer (ex. : ValidationException)
     ];
 
     /**
-     * Les champs à ne pas remonter lors d'une ValidationException.
+     * Liste des champs sensibles à ne pas inclure dans les messages d'erreur de validation.
      *
      * @var array<int, string>
      */
@@ -32,38 +35,41 @@ class Handler extends ExceptionHandler
     ];
 
     /**
-     * Enregistrement des callbacks d'exception.
+     * Méthode d'enregistrement des callbacks d'exception.
+     * Utilisée pour ajouter une logique personnalisée pour certaines exceptions.
      */
     public function register(): void
     {
-        // Laissons cette méthode vide
+        // Cette méthode peut être utilisée pour enregistrer des gestionnaires personnalisés.
     }
 
     /**
-     * Conversion d'une exception en réponse HTTP.
+     * Convertit une exception en une réponse HTTP compréhensible par le client.
      *
-     * @param \Illuminate\Http\Request $request
-     * @param \Throwable $e
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @param \Illuminate\Http\Request $request La requête HTTP
+     * @param \Throwable $e L'exception levée
+     * @return \Symfony\Component\HttpFoundation\Response La réponse à retourner
      *
      * @throws \Throwable
      */
     public function render($request, Throwable $e)
     {
-        // Vérifier si la requête concerne l'API
+        // Si la requête est destinée à une API (via route ou en-tête)
         if ($request->expectsJson() || $request->is('api/*')) {
-            // Gestion des ModelNotFoundException et NotFoundHttpException
-            if ($e instanceof ModelNotFoundException || 
+
+            // Si l'erreur concerne une ressource non trouvée (ex: modèle inexistant ou route inconnue)
+            if (
+                $e instanceof ModelNotFoundException ||
                 $e instanceof NotFoundHttpException ||
-                ($e instanceof HttpExceptionInterface && $e->getStatusCode() === 404)) {
-                
+                ($e instanceof HttpExceptionInterface && $e->getStatusCode() === 404)
+            ) {
                 return response()->json(
                     ['message' => 'Resource not found'], 
                     404
                 );
             }
 
-            // Gestion des erreurs de validation
+            // Si l'erreur est due à une validation des données
             if ($e instanceof ValidationException) {
                 return response()->json([
                     'message' => 'Validation failed',
@@ -71,20 +77,22 @@ class Handler extends ExceptionHandler
                 ], 422);
             }
 
-            // Gestion des autres exceptions HTTP
+            // Si c'est une autre erreur HTTP (ex: 403, 401, etc.)
             if ($e instanceof HttpExceptionInterface) {
                 return response()->json([
                     'message' => $e->getMessage() ?: 'HTTP error',
                 ], $e->getStatusCode());
             }
 
-            // Autres exceptions inattendues → 500
+            // Pour toute autre erreur non prévue → erreur serveur
             return response()->json([
                 'message' => 'Server Error',
+                // En mode debug, on expose le type d'exception pour faciliter le débogage
                 'exception' => config('app.debug') ? get_class($e) : null,
             ], 500);
         }
 
+        // Pour les requêtes non-API, utiliser le rendu par défaut de Laravel (HTML)
         return parent::render($request, $e);
     }
 }

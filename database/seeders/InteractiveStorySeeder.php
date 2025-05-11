@@ -15,7 +15,7 @@ class InteractiveStorySeeder extends Seeder
         $story = Story::create([
             'title'       => 'La Route de l\'Entrepreneur',
             'description' => 'Thomas, 28 ans, quitte son emploi pour lancer sa boutique d\'e-commerce d\'accessoires tech écologiques.',
-            'created_by'  => 1, // adapte si nécessaire
+            'created_by'  => 1, 
         ]);
 
         // 2) Définition des chapitres + choix
