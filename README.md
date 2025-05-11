@@ -1,5 +1,3 @@
-Voici un exemple de fichier `README.md` clair et professionnel pour ton projet Laravel d’API de fiction interactive :
-
 ---
 
 # 📚 Interactive Fiction API
