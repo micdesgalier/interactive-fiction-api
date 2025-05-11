@@ -155,14 +155,14 @@ class InteractiveStorySeeder extends Seeder
                 Choice::create([
                     'chapter_id'      => $chapter->id,
                     'text'            => $choiceA[0],
-                    'next_chapter_id' => $choiceA[1],
+                    'target_chapter_id' => $choiceA[1],
                 ]);
             }
             if ($choiceB) {
                 Choice::create([
                     'chapter_id'      => $chapter->id,
                     'text'            => $choiceB[0],
-                    'next_chapter_id' => $choiceB[1],
+                    'target_chapter_id' => $choiceB[1],
                 ]);
             }
         }
