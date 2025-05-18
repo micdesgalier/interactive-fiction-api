@@ -4,6 +4,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Story;
 use App\Models\Chapter;
 use App\Http\Requests\StoreChapterRequest;
 use App\Http\Requests\UpdateChapterRequest;
@@ -11,94 +12,87 @@ use App\Http\Resources\ChapterResource;
 
 /**
  * Contrôleur API pour gérer les chapitres d'une histoire.
- * Permet la création, l'affichage, la modification et la suppression de chapitres,
- * tout en respectant l'association avec une histoire donnée.
  */
 class ChapterController extends Controller
 {
     /**
      * Liste tous les chapitres d'une histoire spécifique.
-     *
-     * @param int $storyId
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function index($storyId)
+    public function index(Story $story)
     {
-        // Récupère tous les chapitres liés à une histoire, avec leurs choix associés
-        $chapters = Chapter::where('story_id', $storyId)
-                           ->with('choices')
-                           ->get();
+        $chapters = $story->chapters()->with('choices')->get();
 
-        // Retourne la liste sous forme de collection de ressources
         return response()->json(['data' => ChapterResource::collection($chapters)], 200);
     }
 
     /**
-     * Crée un nouveau chapitre à partir des données validées.
-     *
-     * @param \App\Http\Requests\StoreChapterRequest $request
-     * @return \Illuminate\Http\JsonResponse
+     * Crée un nouveau chapitre pour une histoire donnée.
      */
-    public function store(StoreChapterRequest $request)
+    public function store(StoreChapterRequest $request, Story $story)
     {
-        // Crée un chapitre avec les données validées du formulaire
-        $chapter = Chapter::create($request->validated());
+        $validated = $request->validated();
+        $validated['story_id'] = $story->id;
 
-        // Retourne le chapitre nouvellement créé
-        return response()->json(['data' => new ChapterResource($chapter)], 201); // 201 = Created
+        $chapter = Chapter::create($validated);
+
+        return response()->json(['data' => new ChapterResource($chapter)], 201);
     }
 
     /**
-     * Affiche un chapitre spécifique d'une histoire donnée.
-     *
-     * @param int $storyId
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * Affiche un chapitre spécifique d'une histoire.
      */
-    public function show($storyId, $id)
+    public function show(Story $story, Chapter $chapter)
     {
-        // Récupère le chapitre avec ses choix, lié à une histoire spécifique
-        $chapter = Chapter::where('story_id', $storyId)
-                          ->with('choices')
-                          ->findOrFail($id);
+        if ($chapter->story_id !== $story->id) {
+            return response()->json(['error' => 'Chapter not found in this story'], 404);
+        }
+
+        $chapter->load('choices');
 
         return response()->json(['data' => new ChapterResource($chapter)], 200);
     }
 
     /**
-     * Met à jour un chapitre existant avec des données validées.
-     *
-     * @param \App\Http\Requests\UpdateChapterRequest $request
-     * @param int $storyId
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * Affiche un chapitre spécifique d'une histoire en fonction de son ordre.
      */
-    public function update(UpdateChapterRequest $request, $storyId, $id)
+    public function showByOrder(Story $story, $order)
     {
-        // Vérifie que le chapitre appartient bien à l'histoire spécifiée
-        $chapter = Chapter::where('story_id', $storyId)->findOrFail($id);
+        $chapter = $story->chapters()->where('order', $order)->first();
+        
+        if (!$chapter) {
+            return response()->json(['error' => 'Chapter not found with this order'], 404);
+        }
+        
+        $chapter->load('choices');
+        
+        return response()->json(['data' => new ChapterResource($chapter)], 200);
+    }
 
-        // Met à jour le chapitre avec les données validées
+    /**
+     * Met à jour un chapitre spécifique d'une histoire.
+     */
+    public function update(UpdateChapterRequest $request, Story $story, Chapter $chapter)
+    {
+        if ($chapter->story_id !== $story->id) {
+            return response()->json(['error' => 'Chapter not found in this story'], 404);
+        }
+
         $chapter->update($request->validated());
 
         return response()->json(['data' => new ChapterResource($chapter)], 200);
     }
 
     /**
-     * Supprime un chapitre d'une histoire spécifique.
-     *
-     * @param int $storyId
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * Supprime un chapitre d'une histoire.
      */
-    public function destroy($storyId, $id)
+    public function destroy(Story $story, Chapter $chapter)
     {
-        // Recherche le chapitre dans le contexte de l'histoire
-        $chapter = Chapter::where('story_id', $storyId)->findOrFail($id);
+        if ($chapter->story_id !== $story->id) {
+            return response()->json(['error' => 'Chapter not found in this story'], 404);
+        }
 
-        // Supprime le chapitre de la base de données
         $chapter->delete();
 
-        return response()->json(null, 204); // 204 = No Content
+        return response()->json(null, 204);
     }
 }

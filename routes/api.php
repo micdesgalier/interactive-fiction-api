@@ -42,6 +42,7 @@ Route::prefix('v1')->group(function () {
     Route::get('stories/{story}',                    [StoryController::class, 'show']);
     Route::get('stories/{story}/chapters',           [ChapterController::class, 'index']);
     Route::get('stories/{story}/chapters/{chapter}', [ChapterController::class, 'show']);
+    Route::get('stories/{story}/chapters/order/{order}', [ChapterController::class, 'showByOrder']); // Nouvelle route
     Route::get('chapters/{chapter}/choices',         [ChoiceController::class, 'index']);
     Route::get('chapters/{chapter}/choices/{choice}',[ChoiceController::class, 'show']);
 
